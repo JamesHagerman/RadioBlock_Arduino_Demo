@@ -72,12 +72,13 @@ void loop() // run over and over
   // Sending data:
   
   // Send some arbitrary data to another RadioBlock by building a custom packet:
-//  interface.setupMessage(THEIR_ADDRESS); // Start a new message to another RadioBlock
-//  interface.addData(4, 200); // Add some arbitrary data to the message
-//  interface.sendMessage(); // Actually transmit the message over the air.
+  interface.setupMessage(THEIR_ADDRESS); // Start a new message to another RadioBlock
+  interface.addData(0xf, 'j'); // Add some arbitrary data to the message
+  interface.addData(0xe, 0xffff); // Add some arbitrary data to the message
+  interface.sendMessage(); // Actually transmit the message over the air.
   
   // Send some arbitrary data to another RadioBlock in one go.
-  interface.sendData(THEIR_ADDRESS, 'j');
+//  interface.sendData(THEIR_ADDRESS, 'j');
   Serial.println("Data sent.");
   
   

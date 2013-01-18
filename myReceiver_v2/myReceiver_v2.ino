@@ -103,7 +103,7 @@ void loop() // run over and over
     
     if (interface.getResponse().getErrorCode() == APP_STATUS_SUCESS){
       Serial.println(" it was a good packet!");
-      Serial.print("Len: ");
+      Serial.print("Length of full packet: ");
       Serial.print(interface.getResponse().getPacketLength(), DEC);
       Serial.print(", Command: ");
       Serial.print(interface.getResponse().getCommandId(), HEX);
@@ -111,17 +111,8 @@ void loop() // run over and over
       Serial.print(interface.getResponse().getCrc(), HEX);
       Serial.println("");
       
-      // The following "meanings" for these bytes are from page 15 of the 
-      // SimpleMesh_Serial_Protocol.pdf from Colorado Micro Devices.
-      Serial.println("Data: "); 
-      Serial.println(interface.getResponse().getFrameData()[0]); // Command ID (err... wrong?)
-      Serial.println(interface.getResponse().getFrameData()[1]); // Source address
-      Serial.println(interface.getResponse().getFrameData()[2]); // Frame options
-      Serial.println(interface.getResponse().getFrameData()[3]); // link quality indicator
-      Serial.println(interface.getResponse().getFrameData()[4]); // Received signal strength
-      Serial.println(interface.getResponse().getFrameData()[5]); // The actual character we were sent.
-      Serial.println(interface.getResponse().getFrameData()[6]); // Oops. confused about getPacketLength's return value
-      Serial.println(interface.getResponse().getFrameData()[7]); // Here just to see what happens.
+      // Parse the data!
+      parseFrameData(interface.getResponse());
       
     } else {
       Serial.println(" it was a bad packet!");
@@ -136,5 +127,148 @@ void loop() // run over and over
   // Still alive notices:
   digitalWrite(led, LOW);
   delay(10);
+}
+
+void parseFrameData(RadioBlockResponse thePacket) {
+	
+	int frame_data_length = 0;
+	// Detected send method:
+	// 0 = unknown
+	// 1 = sendData()
+	// 2 = sendMessage()
+	int send_method = -1; 
+	
+	int command_id = -1;
+	unsigned int code_and_type = 0;
+	unsigned int payload_code = 0;
+	unsigned int payload_data_type = 0;
+	
+  	// We can use this to determine which commands the sending unit used to build the packet:
+	// If the length == 6, the sender used sendData()
+	// If the length > 6, the sender used setupMessage(), addData(), and sendMessage() 
+	//
+	// If the sender used the second method, we need to do more parsing of the payload to pull out
+	// the sent data. See "Data or start of payload" below at array offset of 5.
+	frame_data_length = thePacket.getFrameDataLength();
+	Serial.print("Length of Frame Data: ");
+	Serial.println(frame_data_length, DEC);
+
+	if (frame_data_length == 6) {
+		send_method = 0;
+	} else if (frame_data_length > 6) {
+		send_method = 1;
+	}
+
+	// The following "meanings" for these bytes are from page 15 of the 
+	// SimpleMesh_Serial_Protocol.pdf from Colorado Micro Devices.
+	Serial.println("Frame Data: "); 
+
+	//command_id = thePacket.getFrameData()[0]; // This isn't always right. A bug?
+	command_id = thePacket.getCommandId();
+	Serial.print(" Command ID: ");
+	Serial.print(thePacket.getFrameData()[0], HEX); // Command ID (err... this is always a zero!?)
+	Serial.print(" actually, that may be wrong. It's actually: ");
+	Serial.println(command_id);
+	
+	// We should probably switch on Command ID here. Only parse data if we got command 0x22...
+	if (command_id == 0x22) {
+		Serial.print(" Source address: ");
+		Serial.println(thePacket.getFrameData()[1], HEX); // Source address
+
+		Serial.print(" Frame options: ");
+		// 0x00 None
+		// 0x01 Acknowledgment was requested
+		// 0x02 Security was used
+		Serial.println(thePacket.getFrameData()[2], HEX); // Frame options
+
+		Serial.print(" Link Quality Indicator: ");
+		Serial.println(thePacket.getFrameData()[3], HEX); // link quality indicator
+
+		Serial.print(" Received Signal Strength Indicator: ");
+		Serial.println(thePacket.getFrameData()[4], HEX); // Received Signal Strength Indicator
+
+		// Parse Data or Payload:
+		// First a note on the libraries treatment of payloads: It doesn't do any work to pull them out 
+		// of the packet. Maybe in the future? Maybe this code should be merged into the library?
+		//
+		// The meaning of the byte at offset 5 depend on how the sender built the packet. We can use
+		// the getFrameDataLength() command to determine how the packet was built (see comments above).
+		
+		if (send_method == 0) {
+			// If the sender used sendData(), this byte is the data the sender was meaning to send. 
+			// All other payload bytes can be ignored. You have your data!
+			Serial.print(" Sent Data: ");
+			Serial.println(thePacket.getFrameData()[5], HEX); // The actual data
+			
+		} else if (send_method == 1) {
+			// If the sender used sendMessage(), this byte is a combination of of the code and the data type of the 
+			// variable the sender was sending. It seems like the code is arbitrary and can be set by the programmer.
+			// The data type is determined by addData()'s overloaded second paramater.
+			//
+			// The lower bits are the data type.
+			// The upper bits are the code.
+			//
+			// So, this byte is ((code << 4) | (type))
+			//
+			// The data types are defined in RadioBlock.cpp in the library.
+			
+			code_and_type = thePacket.getFrameData()[5];
+			Serial.print(" Encoded send code and original data type: ");
+			Serial.println(code_and_type, HEX); // The actual data
+			
+			payload_data_type = code_and_type & 0xf;
+			payload_code = (code_and_type >> 4) & 0xf;
+			
+			Serial.print("  The sent code was (in hex): ");
+			Serial.println(payload_code, HEX);
+			Serial.print("  The original data type was: ");
+			Serial.println(payload_data_type);
+			
+			if (payload_data_type == 4) {
+				Serial.println("   Data type is TYPE_INT16. High and low bytes:");
+				Serial.print("    High part: ");
+				Serial.println(thePacket.getFrameData()[6]); 
+
+				Serial.print("    Low part: ");
+				Serial.println(thePacket.getFrameData()[7]);
+			}
+			
+			// Debugging: 
+			Serial.println("Here's a second data value in the payload... if there is one");
+			code_and_type = thePacket.getFrameData()[8];
+			payload_data_type = code_and_type & 0xf;
+			payload_code = (code_and_type >> 4) & 0xf;
+			
+			Serial.print("  The sent code was (in hex): ");
+			Serial.println(payload_code, HEX);
+			Serial.print("  The original data type was: ");
+			Serial.println(payload_data_type);
+			
+			Serial.print("   More data:");
+			Serial.println(thePacket.getFrameData()[9]);
+			Serial.print("   More data:");
+			Serial.println(thePacket.getFrameData()[10]);
+			Serial.print("   More data:");
+			Serial.println(thePacket.getFrameData()[11]);
+			Serial.print("   More data:");
+			Serial.println(thePacket.getFrameData()[12]);
+			Serial.print("   More data:");
+			Serial.println(thePacket.getFrameData()[13]);
+			Serial.print("   More data:");
+			Serial.println(thePacket.getFrameData()[14]);
+			// End debugging
+			
+		} else {
+			// Unkown send method!
+			Serial.println("We got a packet smaller then expected... What happened?");
+		}
+	} else {
+		Serial.println("The sender used a non-data command. We can't deal with that yet.");
+		Serial.print("The Command ID (in hex) was: ");
+		Serial.println(command_id, HEX);
+	}
+
+	
+	
 }
 

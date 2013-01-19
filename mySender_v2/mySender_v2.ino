@@ -70,17 +70,37 @@ void loop() // run over and over
   
   //==============
   // Sending data:
+  // Data types that work:
+  byte a_byte = 255;                  // unsigned 8 bit, 0 to 255 -> TYPE_UINT8
+  unsigned char a_uchar = 'j';        // unsigned 8 bit 0 to 255 -> TYPE_UINT8
+  unsigned int a_uint = 65535;        // unsigned 16 bit -> TYPE_UINT16
+  int a_int = 32767;                  // signed 16 bit -32,768 to 32,767 -> TYPE_INT16
+  unsigned long a_long = 4294967295;  // unsigned 32 bit -> TYPE_UINT32
+  
+  // Data types that don't work:
+  char a_char = 'j';             // signed -128 to 127 somehow this comes through as a int16
   
   // Send some arbitrary data to another RadioBlock by building a custom packet:
   interface.setupMessage(THEIR_ADDRESS); // Start a new message to another RadioBlock
-  interface.addData(0xf, 'j'); // Add some arbitrary data to the message
-  interface.addData(0xe, 0xffff); // Add some arbitrary data to the message
+  
+  // Add some arbitrary data to the message
+  // These come through correctly typed:
+//  interface.addData(0x0, a_byte);  
+//  interface.addData(0x1, a_uchar); 
+//  interface.addData(0x2, a_uint);
+//  interface.addData(0x3, a_int);
+//  interface.addData(0x5, a_long);
+
+  // These do not come through as the correct type:
+  interface.addData(0xf, a_char); 
+
   interface.sendMessage(); // Actually transmit the message over the air.
   
   // Send some arbitrary data to another RadioBlock in one go.
 //  interface.sendData(THEIR_ADDRESS, 'j');
+
+
   Serial.println("Data sent.");
-  
   
   
   //===================

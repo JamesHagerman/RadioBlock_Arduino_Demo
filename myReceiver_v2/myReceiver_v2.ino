@@ -168,7 +168,7 @@ void parseFrameData(RadioBlockResponse thePacket) {
 	Serial.print(" Command ID: ");
 	Serial.print(thePacket.getFrameData()[0], HEX); // Command ID (err... this is always a zero!?)
 	Serial.print(" actually, that may be wrong. It's actually: ");
-	Serial.println(command_id);
+	Serial.println(command_id, HEX);
 	
 	// We should probably switch on Command ID here. Only parse data if we got command 0x22...
 	if (command_id == 0x22) {
@@ -224,39 +224,66 @@ void parseFrameData(RadioBlockResponse thePacket) {
 			Serial.print("  The original data type was: ");
 			Serial.println(payload_data_type);
 			
-			if (payload_data_type == 4) {
+			
+			if (payload_data_type == 1) {
+				Serial.println("   Data type is TYPE_UINT8. Data:");
+				Serial.print("    The data: ");
+				Serial.println(thePacket.getFrameData()[6]); 
+			} else if (payload_data_type == 2) {
+				Serial.println("   Data type is TYPE_INT8. High and low bytes:");
+				Serial.print("    High part: ");
+				Serial.println(thePacket.getFrameData()[6]); 
+				Serial.print("    Low part: ");
+				Serial.println(thePacket.getFrameData()[7]);
+			} else if (payload_data_type == 3) {
+				Serial.println("   Data type is TYPE_UINT16. High and low bytes:");
+				Serial.print("    High part: ");
+				Serial.println(thePacket.getFrameData()[6]); 
+				Serial.print("    Low part: ");
+				Serial.println(thePacket.getFrameData()[7]);
+			} else if (payload_data_type == 4) {
 				Serial.println("   Data type is TYPE_INT16. High and low bytes:");
 				Serial.print("    High part: ");
 				Serial.println(thePacket.getFrameData()[6]); 
-
 				Serial.print("    Low part: ");
 				Serial.println(thePacket.getFrameData()[7]);
+			} else if (payload_data_type == 5) {
+				Serial.println("   Data type is TYPE_UINT32. Four bytes:");
+				Serial.print("    MSB: ");
+				Serial.println(thePacket.getFrameData()[6]); 
+				Serial.print("    : ");
+				Serial.println(thePacket.getFrameData()[7]);
+				Serial.print("    :");
+				Serial.println(thePacket.getFrameData()[8]);
+				Serial.print("    LSB:");
+				Serial.println(thePacket.getFrameData()[9]);
+			} else {
+				Serial.println("   Data type is not coded for yet...");
+				// Debugging: 
+				Serial.print("   Raw byte:");
+				Serial.println(thePacket.getFrameData()[6]);
+				Serial.print("   Raw byte:");
+				Serial.println(thePacket.getFrameData()[7]);
+				Serial.print("   Raw byte:");
+				Serial.println(thePacket.getFrameData()[8]);
+				Serial.print("   Raw byte:");
+				Serial.println(thePacket.getFrameData()[9]);
+				Serial.print("   Raw byte:");
+				Serial.println(thePacket.getFrameData()[10]);
+				Serial.print("   Raw byte:");
+				Serial.println(thePacket.getFrameData()[11]);
+				Serial.print("   Raw byte:");
+				Serial.println(thePacket.getFrameData()[12]);
+				Serial.print("   Raw byte:");
+				Serial.println(thePacket.getFrameData()[13]);
+				Serial.print("   Raw byte:");
+				Serial.println(thePacket.getFrameData()[14]);
+				Serial.print("   Raw byte:");
+				Serial.println(thePacket.getFrameData()[15]);
+				Serial.print("   Raw byte:");
+				Serial.println(thePacket.getFrameData()[16]);
+				// End debugging
 			}
-			
-			// Debugging: 
-			Serial.println("Here's a second data value in the payload... if there is one");
-			code_and_type = thePacket.getFrameData()[8];
-			payload_data_type = code_and_type & 0xf;
-			payload_code = (code_and_type >> 4) & 0xf;
-			
-			Serial.print("  The sent code was (in hex): ");
-			Serial.println(payload_code, HEX);
-			Serial.print("  The original data type was: ");
-			Serial.println(payload_data_type);
-			
-			Serial.print("   More data:");
-			Serial.println(thePacket.getFrameData()[9]);
-			Serial.print("   More data:");
-			Serial.println(thePacket.getFrameData()[10]);
-			Serial.print("   More data:");
-			Serial.println(thePacket.getFrameData()[11]);
-			Serial.print("   More data:");
-			Serial.println(thePacket.getFrameData()[12]);
-			Serial.print("   More data:");
-			Serial.println(thePacket.getFrameData()[13]);
-			Serial.print("   More data:");
-			Serial.println(thePacket.getFrameData()[14]);
-			// End debugging
 			
 		} else {
 			// Unkown send method!
@@ -267,7 +294,6 @@ void parseFrameData(RadioBlockResponse thePacket) {
 		Serial.print("The Command ID (in hex) was: ");
 		Serial.println(command_id, HEX);
 	}
-
 	
 	
 }
